@@ -99,6 +99,20 @@ const getUVForecast = async (lat: number, lon: number): Promise<any[]> => {
   }
 };
 
+const getAQIForecast = async (lat: number, lon: number): Promise<any[]> => {
+  try {
+    const response = await fetch(`${OWM_BASE_URL}/air_pollution/forecast?${getParams({ lat: lat.toString(), lon: lon.toString() })}`);
+    if (response.ok) {
+      const data = await response.json();
+      return data.list || [];
+    }
+    return [];
+  } catch (error) {
+    console.warn("Failed to fetch AQI forecast", error);
+    return [];
+  }
+};
+
 export const getForecastData = async (lat: number, lon: number, unit: 'metric' | 'imperial'): Promise<ForecastData[]> => {
   const response = await fetch(`${OWM_BASE_URL}/forecast?${getParams({ lat: lat.toString(), lon: lon.toString(), units: unit })}`);
   if (!response.ok) {
@@ -137,21 +151,37 @@ export const getForecastData = async (lat: number, lon: number, unit: 'metric' |
     }
   });
   
-  // Fetch UV Forecast and merge
+  // Fetch UV and AQI Forecasts and merge
   try {
-    const uvData = await getUVForecast(lat, lon);
-    if (Array.isArray(uvData) && uvData.length > 0) {
-      dailyForecast.forEach(day => {
-        const dayDate = new Date(day.dt * 1000).toDateString();
-        // Match UV data by date. UV API returns 'date' field in unix seconds.
+    const [uvData, aqiData] = await Promise.all([
+      getUVForecast(lat, lon),
+      getAQIForecast(lat, lon)
+    ]);
+
+    dailyForecast.forEach(day => {
+      const dayDate = new Date(day.dt * 1000).toDateString();
+      
+      // Match UV data
+      if (Array.isArray(uvData) && uvData.length > 0) {
         const uvItem = uvData.find(u => new Date(u.date * 1000).toDateString() === dayDate);
         if (uvItem) {
           day.uvIndex = uvItem.value;
         }
-      });
-    }
+      }
+
+      // Match AQI data (AQI forecast is hourly, we pick one for the day)
+      if (Array.isArray(aqiData) && aqiData.length > 0) {
+        // Find closest to noon, or just the first match for the day
+        const aqiItem = aqiData.find(a => new Date(a.dt * 1000).toDateString() === dayDate && new Date(a.dt * 1000).getHours() >= 12) 
+                     || aqiData.find(a => new Date(a.dt * 1000).toDateString() === dayDate);
+        
+        if (aqiItem) {
+          day.aqi = aqiItem.main.aqi;
+        }
+      }
+    });
   } catch (e) {
-    console.warn("Could not merge UV forecast", e);
+    console.warn("Could not merge additional forecast metrics", e);
   }
 
   return dailyForecast.slice(0, 5); // Ensure max 5 days

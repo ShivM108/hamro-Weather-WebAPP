@@ -57,6 +57,7 @@ export interface ForecastData {
   }>;
   dt_txt: string;
   uvIndex?: number;
+  aqi?: number;
 }
 
 export interface ForecastResponse {
