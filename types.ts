@@ -38,6 +38,7 @@ export interface WeatherData {
   visibility: number;
   dt: number;
   uvIndex?: number; // Optional UV Index
+  aqi?: number; // Optional Air Quality Index (1-5)
 }
 
 export interface ForecastData {
@@ -55,6 +56,7 @@ export interface ForecastData {
     icon: string;
   }>;
   dt_txt: string;
+  uvIndex?: number;
 }
 
 export interface ForecastResponse {

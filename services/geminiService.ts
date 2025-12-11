@@ -20,10 +20,13 @@ export const getAIWeatherInsight = async (weather: WeatherData): Promise<string>
       - Feels Like: ${Math.round(weather.main.feels_like)}°
       - Humidity: ${weather.main.humidity}%
       - Wind: ${weather.wind.speed} speed
+      ${weather.uvIndex !== undefined ? `- UV Index: ${weather.uvIndex}` : ''}
+      ${weather.aqi !== undefined ? `- Air Quality Index: ${weather.aqi} (Scale: 1 Good to 5 Very Poor)` : ''}
 
       Provide a SHORT (max 2 sentences) output:
       1. A practical clothing recommendation.
       2. A fun or useful activity suggestion.
+      ${weather.aqi && weather.aqi > 3 ? 'Include a brief warning about the poor air quality.' : ''}
       Do not use markdown formatting like bolding. Keep it conversational.
     `;
 

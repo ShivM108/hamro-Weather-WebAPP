@@ -1,6 +1,6 @@
 import React from 'react';
 import { WeatherData } from '../types';
-import { Wind, Droplets, Eye, ArrowDown, ArrowUp, Sun } from 'lucide-react';
+import { Wind, Droplets, Eye, ArrowDown, ArrowUp, Sun, Activity } from 'lucide-react';
 import { WEEK_DAYS } from '../constants';
 
 interface CurrentWeatherProps {
@@ -16,19 +16,30 @@ export const CurrentWeather: React.FC<CurrentWeatherProps> = ({ data, unit }) =>
   // Map icon code to high res image or default OWM
   const iconUrl = `https://openweathermap.org/img/wn/${data.weather[0].icon}@4x.png`;
 
-  const getUVDetails = (uv: number) => {
-    if (uv <= 2) return { text: 'Low', color: 'text-green-500', advice: 'No protection needed.' };
-    if (uv <= 5) return { text: 'Moderate', color: 'text-yellow-400', advice: 'Sunscreen recommended.' };
-    if (uv <= 7) return { text: 'High', color: 'text-orange-500', advice: 'Cover up & sunscreen.' };
-    if (uv <= 10) return { text: 'Very High', color: 'text-red-500', advice: 'Avoid midday sun.' };
-    return { text: 'Extreme', color: 'text-purple-500', advice: 'Stay indoors!' };
+  const getUVStatus = (uv: number) => {
+    if (uv <= 2) return { text: 'Low', color: 'text-green-500', barColor: 'bg-green-500', advice: 'No protection needed' };
+    if (uv <= 5) return { text: 'Moderate', color: 'text-yellow-500', barColor: 'bg-yellow-500', advice: 'Wear sunscreen' };
+    if (uv <= 7) return { text: 'High', color: 'text-orange-500', barColor: 'bg-orange-500', advice: 'Cover up & sunscreen' };
+    if (uv <= 10) return { text: 'Very High', color: 'text-red-500', barColor: 'bg-red-500', advice: 'Avoid midday sun' };
+    return { text: 'Extreme', color: 'text-purple-500', barColor: 'bg-purple-500', advice: 'Stay indoors' };
   };
 
-  const uvDetails = data.uvIndex !== undefined ? getUVDetails(data.uvIndex) : null;
-  const uvPercentage = data.uvIndex !== undefined ? Math.min((data.uvIndex / 11) * 100, 100) : 0;
+  const getAQIStatus = (aqi: number) => {
+    switch(aqi) {
+      case 1: return { text: 'Good', color: 'text-green-500', barColor: 'bg-green-500', advice: 'Air quality is satisfactory' };
+      case 2: return { text: 'Fair', color: 'text-yellow-500', barColor: 'bg-yellow-500', advice: 'Sensitive groups: reduce exertion' };
+      case 3: return { text: 'Moderate', color: 'text-orange-500', barColor: 'bg-orange-500', advice: 'Unhealthy for sensitive groups' };
+      case 4: return { text: 'Poor', color: 'text-red-500', barColor: 'bg-red-500', advice: 'Unhealthy for everyone' };
+      case 5: return { text: 'Very Poor', color: 'text-purple-500', barColor: 'bg-purple-500', advice: 'Emergency health warning' };
+      default: return { text: 'Unknown', color: 'text-gray-500', barColor: 'bg-gray-500', advice: 'No data available' };
+    }
+  };
+
+  const uvStatus = data.uvIndex !== undefined ? getUVStatus(data.uvIndex) : null;
+  const aqiStatus = data.aqi !== undefined ? getAQIStatus(data.aqi) : null;
 
   return (
-    <div className="relative overflow-hidden bg-white/30 dark:bg-slate-800/50 backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-xl border border-white/20 text-gray-800 dark:text-white transition-all">
+    <div className="relative overflow-hidden bg-white/30 dark:bg-slate-800/50 backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-xl border border-white/20 text-gray-800 dark:text-white">
       {/* Header */}
       <div className="flex justify-between items-start mb-6">
         <div>
@@ -82,41 +93,63 @@ export const CurrentWeather: React.FC<CurrentWeatherProps> = ({ data, unit }) =>
         </div>
       </div>
 
-      {/* UV Index Section */}
-      {data.uvIndex !== undefined && uvDetails && (
-        <div className="mt-6 pt-4 border-t border-white/10">
-          <div className="flex items-end justify-between mb-2">
-            <div className="flex items-center space-x-2">
-              <Sun className="w-5 h-5 text-orange-400" />
-              <span className="font-semibold text-sm uppercase tracking-wide opacity-80">UV Index</span>
-            </div>
-            <div className="text-right">
-              <span className={`text-xl font-bold ${uvDetails.color} mr-2`}>
-                {data.uvIndex.toFixed(1)}
-              </span>
-              <span className="text-sm font-medium opacity-90">{uvDetails.text}</span>
-            </div>
-          </div>
+      {/* Environmental Details (UV & AQI) */}
+      {(uvStatus || aqiStatus) && (
+        <div className={`mt-4 pt-4 border-t border-white/10 grid grid-cols-1 ${uvStatus && aqiStatus ? 'sm:grid-cols-2' : ''} gap-4`}>
           
-          {/* Gradient Bar */}
-          <div className="relative w-full h-3 rounded-full bg-gray-200 dark:bg-gray-700/50 overflow-hidden shadow-inner">
-             <div className="absolute inset-0 bg-gradient-to-r from-green-400 via-yellow-400 via-orange-500 to-purple-600 opacity-90" />
-             <div className="absolute inset-0 bg-white/20" /> {/* Gloss effect */}
-          </div>
-          
-          {/* Slider Marker (Positioned relative to bar width) */}
-          <div className="relative w-full h-0">
-             <div 
-               className="absolute -top-4 w-4 h-4 bg-white border-2 border-gray-300 dark:border-gray-600 rounded-full shadow-lg transform -translate-x-1/2 transition-all duration-700 ease-out"
-               style={{ left: `${uvPercentage}%` }}
-             >
-                <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0.5 h-1 bg-white/50"></div>
-             </div>
-          </div>
+          {/* UV Index */}
+          {data.uvIndex !== undefined && uvStatus && (
+            <div className="bg-white/40 dark:bg-black/20 p-4 rounded-xl backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <Sun className="w-5 h-5 text-orange-400" />
+                  <span className="font-semibold text-sm uppercase tracking-wide opacity-80">UV Index</span>
+                </div>
+                <div className="text-right">
+                  <span className={`text-lg font-bold ${uvStatus.color} mr-2`}>{data.uvIndex.toFixed(1)}</span>
+                </div>
+              </div>
+              
+              <div className="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden mb-2">
+                 <div 
+                   className={`h-full rounded-full ${uvStatus.barColor}`} 
+                   style={{ width: `${Math.min((data.uvIndex / 11) * 100, 100)}%` }}
+                 ></div>
+              </div>
+              
+              <div className="flex justify-between items-end">
+                 <span className={`text-sm font-medium ${uvStatus.color}`}>{uvStatus.text}</span>
+                 <p className="text-xs opacity-70">{uvStatus.advice}</p>
+              </div>
+            </div>
+          )}
 
-          <p className="text-xs mt-3 text-right opacity-75 italic">
-            "{uvDetails.advice}"
-          </p>
+          {/* AQI */}
+          {data.aqi !== undefined && aqiStatus && (
+            <div className="bg-white/40 dark:bg-black/20 p-4 rounded-xl backdrop-blur-sm">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center space-x-2">
+                  <Activity className="w-5 h-5 text-emerald-400" />
+                  <span className="font-semibold text-sm uppercase tracking-wide opacity-80">Air Quality</span>
+                </div>
+                <div className="text-right">
+                  <span className={`text-lg font-bold ${aqiStatus.color} mr-2`}>Level {data.aqi}</span>
+                </div>
+              </div>
+              
+              <div className="w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden mb-2">
+                 <div 
+                   className={`h-full rounded-full ${aqiStatus.barColor}`} 
+                   style={{ width: `${(data.aqi / 5) * 100}%` }}
+                 ></div>
+              </div>
+              
+              <div className="flex justify-between items-end">
+                 <span className={`text-sm font-medium ${aqiStatus.color}`}>{aqiStatus.text}</span>
+                 <p className="text-xs opacity-70 text-right max-w-[60%] leading-tight">{aqiStatus.advice}</p>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

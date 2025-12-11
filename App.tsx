@@ -9,7 +9,6 @@ import { NepalSelector } from './components/NepalSelector';
 import { WeatherData, ForecastData, City } from './types';
 import { getWeatherData, getForecastData, getCityByCoords } from './services/weatherService';
 import { getAIWeatherInsight } from './services/geminiService';
-import { OWM_API_KEY } from './constants';
 import { Loader2, AlertCircle } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -44,13 +43,6 @@ const App: React.FC = () => {
       localStorage.setItem('theme', 'light');
     }
   }, [darkMode]);
-
-  // Check for API Key on mount
-  useEffect(() => {
-    if (!OWM_API_KEY) {
-      setError("⚠️ OpenWeatherMap API Key is missing. Weather data cannot be fetched. Please configure OWM_API_KEY in your environment variables.");
-    }
-  }, []);
 
   const addToHistory = (city: string) => {
     setHistory(prev => {
@@ -115,7 +107,7 @@ const App: React.FC = () => {
             
             fetchAIInsight(cityData);
           } catch (err: any) {
-            setError("Could not get weather for your location. " + (err.message || ""));
+            setError("Could not get weather for your location.");
           } finally {
             setLoading(false);
           }
@@ -152,9 +144,9 @@ const App: React.FC = () => {
             <SearchBar onSearch={handleSearch} onLocationClick={handleLocationClick} isLoading={loading} />
             
             {error && (
-              <div className="bg-red-100 dark:bg-red-900/30 border-l-4 border-red-500 text-red-700 dark:text-red-300 p-4 rounded shadow-sm flex items-start animate-fade-in">
-                <AlertCircle className="w-5 h-5 mr-2 flex-shrink-0 mt-0.5" />
-                <p className="text-sm font-medium">{error}</p>
+              <div className="bg-red-100 dark:bg-red-900/30 border-l-4 border-red-500 text-red-700 dark:text-red-300 p-4 rounded shadow-sm flex items-center animate-fade-in">
+                <AlertCircle className="w-5 h-5 mr-2" />
+                <p>{error}</p>
               </div>
             )}
 
@@ -193,18 +185,13 @@ const App: React.FC = () => {
               <div className="flex flex-col items-center justify-center h-64 text-white/70 bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 p-8 text-center">
                 <h2 className="text-2xl font-bold mb-2">Welcome to Hamro Weather</h2>
                 <p>Search for a city or use the "Browse Nepal" feature to get started.</p>
-                {!OWM_API_KEY && (
-                  <p className="mt-4 text-sm text-red-300 bg-red-900/40 px-3 py-1 rounded-full">
-                    API Key Missing
-                  </p>
-                )}
               </div>
             )}
           </div>
         </div>
 
         <footer className="mt-12 text-center text-white/50 text-sm pb-6">
-          <p>© {new Date().getFullYear()} Hamro Weather. Design by <span> SHIV </span> </p>
+          <p>© {new Date().getFullYear()} Hamro Weather. Powered by OpenWeatherMap & Gemini.</p>
         </footer>
       </div>
     </div>

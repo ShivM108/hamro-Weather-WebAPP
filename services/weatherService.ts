@@ -2,9 +2,6 @@ import { OWM_API_KEY, OWM_BASE_URL } from '../constants';
 import { WeatherData, ForecastData, ForecastResponse } from '../types';
 
 const getParams = (params: Record<string, string>) => {
-  if (!OWM_API_KEY) {
-    throw new Error("API Key missing. Please configure OWM_API_KEY.");
-  }
   return new URLSearchParams({
     appid: OWM_API_KEY,
     ...params,
@@ -18,14 +15,17 @@ export const getWeatherData = async (city: string, unit: 'metric' | 'imperial'):
   }
   const data = await response.json();
   
-  // Try to fetch UV Index
+  // Try to fetch UV Index and AQI
   try {
-    const uv = await getUVIndex(data.coord.lat, data.coord.lon);
-    if (uv !== null) {
-      data.uvIndex = uv;
-    }
+    const [uv, aqi] = await Promise.all([
+      getUVIndex(data.coord.lat, data.coord.lon),
+      getAirQuality(data.coord.lat, data.coord.lon)
+    ]);
+
+    if (uv !== null) data.uvIndex = uv;
+    if (aqi !== null) data.aqi = aqi;
   } catch (e) {
-    console.warn("Could not fetch UV index", e);
+    console.warn("Could not fetch additional weather metrics", e);
   }
 
   return data;
@@ -38,14 +38,17 @@ export const getCityByCoords = async (lat: number, lon: number, unit: 'metric' |
   }
   const data = await response.json();
 
-  // Try to fetch UV Index
+  // Try to fetch UV Index and AQI
   try {
-    const uv = await getUVIndex(data.coord.lat, data.coord.lon);
-    if (uv !== null) {
-      data.uvIndex = uv;
-    }
+    const [uv, aqi] = await Promise.all([
+      getUVIndex(data.coord.lat, data.coord.lon),
+      getAirQuality(data.coord.lat, data.coord.lon)
+    ]);
+
+    if (uv !== null) data.uvIndex = uv;
+    if (aqi !== null) data.aqi = aqi;
   } catch (e) {
-    console.warn("Could not fetch UV index", e);
+    console.warn("Could not fetch additional weather metrics", e);
   }
 
   return data;
@@ -61,12 +64,38 @@ export const getUVIndex = async (lat: number, lon: number): Promise<number | nul
       const data = await response.json();
       return data.value;
     }
-    
-    // If that fails (e.g., deprecated), we might try OneCall if the key supports it, 
-    // but for this demo, we'll return null if the specific endpoint fails.
+    return null;
+  } catch (error) {
+    console.warn("Error fetching UV index:", error);
+    return null;
+  }
+};
+
+// Fetch Air Quality Index
+export const getAirQuality = async (lat: number, lon: number): Promise<number | null> => {
+  try {
+    const response = await fetch(`${OWM_BASE_URL}/air_pollution?${getParams({ lat: lat.toString(), lon: lon.toString() })}`);
+    if (response.ok) {
+      const data = await response.json();
+      // AQI is inside list[0].main.aqi
+      return data.list?.[0]?.main?.aqi || null;
+    }
     return null;
   } catch (error) {
     return null;
+  }
+};
+
+const getUVForecast = async (lat: number, lon: number): Promise<any[]> => {
+  try {
+    const response = await fetch(`${OWM_BASE_URL}/uvi/forecast?${getParams({ lat: lat.toString(), lon: lon.toString(), cnt: '5' })}`);
+    if (response.ok) {
+      return await response.json();
+    }
+    return [];
+  } catch (error) {
+    console.warn("Failed to fetch UV forecast", error);
+    return [];
   }
 };
 
@@ -92,8 +121,6 @@ export const getForecastData = async (lat: number, lon: number, unit: 'metric' |
         dailyForecast.push(item);
         addedDates.add(date);
       } else if (!dailyForecast.find(f => new Date(f.dt * 1000).toDateString() === date)) {
-          // If we haven't added this day yet, and it's not noon, add it purely if it's the first one we see 
-          // (fallback for end of list) - but usually better to wait for the noon slot if available
            dailyForecast.push(item);
            addedDates.add(date);
       }
@@ -109,6 +136,23 @@ export const getForecastData = async (lat: number, lon: number, unit: 'metric' |
         }
     }
   });
+  
+  // Fetch UV Forecast and merge
+  try {
+    const uvData = await getUVForecast(lat, lon);
+    if (Array.isArray(uvData) && uvData.length > 0) {
+      dailyForecast.forEach(day => {
+        const dayDate = new Date(day.dt * 1000).toDateString();
+        // Match UV data by date. UV API returns 'date' field in unix seconds.
+        const uvItem = uvData.find(u => new Date(u.date * 1000).toDateString() === dayDate);
+        if (uvItem) {
+          day.uvIndex = uvItem.value;
+        }
+      });
+    }
+  } catch (e) {
+    console.warn("Could not merge UV forecast", e);
+  }
 
   return dailyForecast.slice(0, 5); // Ensure max 5 days
 };
