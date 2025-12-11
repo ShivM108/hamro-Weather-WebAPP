@@ -1,0 +1,7 @@
+{
+  "name": "Hamro Weather",
+  "description": "A modern, AI-powered weather dashboard featuring real-time data, 5-day forecasts, and smart insights.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
