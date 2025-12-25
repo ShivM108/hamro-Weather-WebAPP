@@ -6,7 +6,7 @@ import { Forecast } from './components/Forecast';
 import { AIInsight } from './components/AIInsight';
 import { SearchHistory } from './components/SearchHistory';
 import { NepalSelector } from './components/NepalSelector';
-import { WeatherData, ForecastData, City } from './types';
+import { WeatherData, ForecastData } from './types';
 import { getWeatherData, getForecastData, getCityByCoords } from './services/weatherService';
 import { getAIWeatherInsight } from './services/geminiService';
 import { Loader2, AlertCircle } from 'lucide-react';
@@ -53,7 +53,6 @@ const App: React.FC = () => {
   };
 
   const fetchAIInsight = async (weatherData: WeatherData) => {
-    if (!process.env.API_KEY) return; // Skip if no Gemini key
     setAiLoading(true);
     try {
       const insight = await getAIWeatherInsight(weatherData);
@@ -97,10 +96,9 @@ const App: React.FC = () => {
         async (position) => {
           try {
             const { latitude, longitude } = position.coords;
-            // First get city name/data from coords
             const cityData = await getCityByCoords(latitude, longitude, unit);
             setWeather(cityData);
-            addToHistory(cityData.name); // Add detected city to history
+            addToHistory(cityData.name);
 
             const forecastData = await getForecastData(latitude, longitude, unit);
             setForecast(forecastData);
@@ -112,7 +110,7 @@ const App: React.FC = () => {
             setLoading(false);
           }
         },
-        (err) => {
+        () => {
           setError("Location permission denied or unavailable.");
           setLoading(false);
         }
@@ -127,7 +125,7 @@ const App: React.FC = () => {
     if (weather) {
       handleSearch(weather.name);
     }
-  }, [unit]); // Re-fetch when unit changes
+  }, [unit]);
 
   return (
     <div className={`min-h-screen transition-colors duration-500 ${
@@ -157,7 +155,6 @@ const App: React.FC = () => {
               localStorage.removeItem('searchHistory');
             }} />
 
-            {/* AI Insight Card for Desktop placement */}
             <div className="hidden md:block">
                <AIInsight insight={aiInsight} loading={aiLoading} />
             </div>
@@ -190,8 +187,8 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <footer className="mt-12 text-center text-white/50 text-sm pb-6">
-          <p>© {new Date().getFullYear()} Hamro Weather. Powered by OpenWeatherMap & Gemini.</p>
+        <footer className="mt-12 text-center text-gray-700 dark:text-white/50 text-sm pb-6 transition-colors duration-300">
+          <p>© 2025 Hamro Weather. BaazarSathi All Right Reserved.</p>
         </footer>
       </div>
     </div>

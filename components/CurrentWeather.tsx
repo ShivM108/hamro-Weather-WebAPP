@@ -39,16 +39,8 @@ export const CurrentWeather: React.FC<CurrentWeatherProps> = ({ data, unit }) =>
   const uvStatus = data.uvIndex !== undefined ? getUVStatus(data.uvIndex) : null;
   const aqiStatus = data.aqi !== undefined ? getAQIStatus(data.aqi) : null;
 
-  // Segment configuration for UV bar
-  // Each block represents a range. We assume max visual scale is around 13 to give 'Extreme' some space.
-  const uvSegments = [
-      { min: 0, max: 3, color: 'bg-green-500' },     // Low (0-2.99)
-      { min: 3, max: 6, color: 'bg-yellow-400' },    // Moderate (3-5.99)
-      { min: 6, max: 8, color: 'bg-orange-500' },    // High (6-7.99)
-      { min: 8, max: 11, color: 'bg-red-500' },      // Very High (8-10.99)
-      { min: 11, max: 13, color: 'bg-purple-500' }   // Extreme (11+)
-  ];
-  const maxUVScale = 13; 
+  // Scale for UV is usually 0-11+, but we map to 0-12 for visual balance
+  const uvPercent = data.uvIndex !== undefined ? Math.min((data.uvIndex / 12) * 100, 100) : 0;
 
   return (
     <div className="relative overflow-hidden bg-white/30 dark:bg-slate-800/50 backdrop-blur-xl rounded-3xl p-6 sm:p-8 shadow-xl border border-white/20 text-gray-800 dark:text-white">
@@ -109,74 +101,73 @@ export const CurrentWeather: React.FC<CurrentWeatherProps> = ({ data, unit }) =>
       {(uvStatus || aqiStatus) && (
         <div className={`mt-4 pt-4 border-t border-white/10 grid grid-cols-1 ${uvStatus && aqiStatus ? 'sm:grid-cols-2' : ''} gap-4`}>
           
-          {/* UV Index - Segmented Progress Bar */}
+          {/* Enhanced UV Index Progress Bar */}
           {data.uvIndex !== undefined && uvStatus && (
             <div className="bg-white/40 dark:bg-black/20 p-4 rounded-xl backdrop-blur-sm flex flex-col justify-between h-full">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-2">
                   <Sun className="w-5 h-5 text-orange-400" />
                   <span className="font-semibold text-sm uppercase tracking-wide opacity-80">UV Index</span>
                 </div>
                 <div className="text-right">
-                  <span className={`text-lg font-bold ${uvStatus.color} mr-2`}>{data.uvIndex.toFixed(1)}</span>
+                  <span className={`text-xl font-black ${uvStatus.color}`}>{data.uvIndex.toFixed(1)}</span>
                 </div>
               </div>
               
-              <div className="flex w-full h-3 rounded-full overflow-hidden bg-gray-200 dark:bg-gray-700 mb-2">
-                {uvSegments.map((seg, i) => {
-                  const range = seg.max - seg.min;
-                  // Calculate how much of this specific segment is filled
-                  const filled = Math.max(0, Math.min(data.uvIndex! - seg.min, range));
-                  const widthPercent = (filled / range) * 100;
-                  // Basis is proportional to range size vs total scale for layout width
-                  const flexBasis = (range / maxUVScale) * 100;
-                  
-                  return (
-                    <div 
-                        key={i} 
-                        style={{ flexBasis: `${flexBasis}%` }}
-                        className="h-full border-r border-white/40 dark:border-slate-800 last:border-0 bg-gray-300 dark:bg-gray-600 relative"
-                    >
-                        <div 
-                            className={`h-full ${seg.color} transition-all duration-700 ease-out`}
-                            style={{ width: `${widthPercent}%` }}
-                        />
-                    </div>
-                  );
-                })}
+              {/* Visual Gradient Progress Bar */}
+              <div className="relative w-full h-3 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden mb-3">
+                {/* Gradient track representing UV ranges */}
+                <div 
+                  className="absolute inset-0 bg-gradient-to-r from-green-500 via-yellow-400 via-orange-500 via-red-500 to-purple-600"
+                  aria-hidden="true"
+                />
+                {/* Pointer/Indicator */}
+                <div 
+                  className="absolute top-0 bottom-0 w-1.5 bg-white border border-gray-300 dark:border-gray-900 shadow-[0_0_10px_rgba(0,0,0,0.3)] z-10 transition-all duration-1000 ease-out rounded-full" 
+                  style={{ left: `${uvPercent}%`, transform: 'translateX(-50%)' }}
+                />
               </div>
               
               <div className="flex justify-between items-end mt-1">
-                 <span className={`text-sm font-bold ${uvStatus.color}`}>{uvStatus.text}</span>
-                 <p className="text-xs opacity-70">{uvStatus.advice}</p>
+                 <div className="flex flex-col">
+                    <span className={`text-sm font-bold ${uvStatus.color}`}>{uvStatus.text}</span>
+                    <p className="text-[10px] opacity-60 uppercase font-medium tracking-wider">Risk Level</p>
+                 </div>
+                 <p className="text-xs opacity-80 text-right italic max-w-[60%]">{uvStatus.advice}</p>
               </div>
             </div>
           )}
 
-          {/* AQI */}
+          {/* Air Quality Index */}
           {data.aqi !== undefined && aqiStatus && (
             <div className="bg-white/40 dark:bg-black/20 p-4 rounded-xl backdrop-blur-sm flex flex-col justify-between h-full">
-              <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center space-x-2">
                   <Activity className="w-5 h-5 text-emerald-400" />
                   <span className="font-semibold text-sm uppercase tracking-wide opacity-80">Air Quality</span>
                 </div>
-                <div className="text-right">
-                  <span className={`text-lg font-bold ${aqiStatus.color} mr-2`}>Level {data.aqi}</span>
+                <div className="text-right flex flex-col items-end">
+                  <span className={`text-xl font-black ${aqiStatus.color}`}>{data.aqi}</span>
+                  <span className={`text-[10px] font-bold uppercase ${aqiStatus.color} opacity-90 tracking-tighter`}>
+                    Index Level
+                  </span>
                 </div>
               </div>
               
-              <div className="w-full bg-gray-200 dark:bg-gray-700 h-3 rounded-full overflow-hidden mb-2">
+              <div className="w-full bg-gray-200 dark:bg-gray-700 h-3 rounded-full overflow-hidden mb-3">
                  <div 
-                   className={`h-full rounded-full transition-all duration-500 ease-out ${aqiStatus.barColor}`} 
+                   className={`h-full transition-all duration-700 ease-out ${aqiStatus.barColor}`} 
                    style={{ width: `${(data.aqi / 5) * 100}%` }}
                    aria-label={`AQI Level: ${aqiStatus.text}`}
                  ></div>
               </div>
               
               <div className="flex justify-between items-end mt-1">
-                 <span className={`text-sm font-bold ${aqiStatus.color}`}>{aqiStatus.text}</span>
-                 <p className="text-xs opacity-70 text-right max-w-[60%] leading-tight">{aqiStatus.advice}</p>
+                 <div className="flex flex-col">
+                    <span className={`text-sm font-bold ${aqiStatus.color}`}>{aqiStatus.text}</span>
+                    <p className="text-[10px] opacity-60 uppercase font-medium tracking-wider">Condition</p>
+                 </div>
+                 <p className="text-xs opacity-80 text-right italic max-w-[60%]">{aqiStatus.advice}</p>
               </div>
             </div>
           )}

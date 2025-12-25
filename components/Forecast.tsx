@@ -1,7 +1,7 @@
 import React from 'react';
 import { ForecastData } from '../types';
 import { WEEK_DAYS } from '../constants';
-import { Sun, Activity } from 'lucide-react';
+import { Sun, Activity, Info } from 'lucide-react';
 
 interface ForecastProps {
   forecast: ForecastData[];
@@ -40,9 +40,22 @@ export const Forecast: React.FC<ForecastProps> = ({ forecast }) => {
    }
  };
 
+  const getAQIAdvice = (aqi: number) => {
+    switch(aqi) {
+      case 1: return 'Perfect for outdoor activities.';
+      case 2: return 'Generally okay for most.';
+      case 3: return 'Sensitive groups should limit time outside.';
+      case 4: return 'Avoid prolonged outdoor exertion.';
+      case 5: return 'Health warning: Stay indoors if possible.';
+      default: return '';
+    }
+  };
+
   return (
     <div className="bg-white/30 dark:bg-slate-800/50 backdrop-blur-xl rounded-3xl p-6 shadow-lg border border-white/20">
-      <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-white">5-Day Forecast</h3>
+      <h3 className="text-xl font-bold mb-4 text-gray-800 dark:text-white flex items-center gap-2">
+        <span>5-Day Forecast</span>
+      </h3>
       <div className="space-y-4">
         {forecast.map((day) => {
           const date = new Date(day.dt * 1000);
@@ -51,54 +64,88 @@ export const Forecast: React.FC<ForecastProps> = ({ forecast }) => {
           
           const uvStyle = day.uvIndex !== undefined ? getUVColor(day.uvIndex) : '';
           const aqiStyle = day.aqi !== undefined ? getAQIColor(day.aqi) : '';
+          const aqiPercentage = day.aqi ? Math.round((day.aqi / 5) * 100) : 0;
 
           return (
-            <div key={day.dt} className="flex flex-col sm:flex-row items-center justify-between p-3 hover:bg-white/40 dark:hover:bg-white/10 rounded-xl transition-all duration-300 cursor-default group hover:scale-[1.01] hover:shadow-md">
+            <div key={day.dt} className="flex flex-col sm:flex-row items-center justify-between p-3 hover:bg-white/40 dark:hover:bg-white/5 rounded-xl transition-all duration-300 cursor-default group hover:scale-[1.01] hover:shadow-sm border border-transparent hover:border-white/10">
               
               {/* Day & Icon */}
               <div className="flex items-center w-full sm:w-auto justify-between sm:justify-start mb-2 sm:mb-0">
-                <span className="w-16 sm:w-24 font-medium text-gray-700 dark:text-gray-200 truncate text-left">{dayName}</span>
+                <span className="w-16 sm:w-24 font-bold text-gray-700 dark:text-gray-200 text-left">{dayName}</span>
                 <div className="flex items-center sm:pl-4">
-                   <img src={iconUrl} alt="icon" className="w-10 h-10 -my-2" />
-                   <span className="text-sm text-gray-600 dark:text-gray-400 capitalize hidden sm:block ml-2 w-24 truncate">
-                      {day.weather[0].main}
+                   <img src={iconUrl} alt="weather icon" className="w-10 h-10 -my-2 drop-shadow-sm transition-transform group-hover:scale-110" />
+                   <span className="text-xs text-gray-500 dark:text-gray-400 capitalize hidden md:block ml-2 w-20 truncate">
+                      {day.weather[0].description}
                    </span>
                 </div>
               </div>
 
               {/* Metrics (UV, AQI, Temps) */}
-              <div className="flex items-center justify-between w-full sm:w-auto sm:justify-end gap-2 sm:gap-4">
+              <div className="flex items-center justify-between w-full sm:w-auto sm:justify-end gap-2 sm:gap-6">
                 
-                {/* Environmental Badges (Hidden on very small screens if crowded, or flex wrap) */}
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   {/* UV Index Indicator */}
                   {day.uvIndex !== undefined && (
                      <div 
-                        className={`flex items-center text-xs font-bold px-2 py-1 rounded-lg ${uvStyle} transition-transform hover:scale-110 cursor-help`} 
-                        title={`UV Index: ${day.uvIndex.toFixed(1)}`}
+                        className={`flex flex-col items-center justify-center min-w-[50px] px-2 py-1 rounded-lg ${uvStyle} transition-all duration-300 hover:scale-105 cursor-help relative group/uv`} 
                      >
-                       <Sun size={12} className="mr-1" />
-                       <span>{day.uvIndex.toFixed(0)}</span>
+                       <div className="flex items-center text-[9px] font-black uppercase tracking-tighter">
+                          <Sun size={9} className="mr-0.5" />
+                          <span>UV {day.uvIndex.toFixed(0)}</span>
+                       </div>
+                       <div className="w-full h-1 bg-current/20 rounded-full mt-1 overflow-hidden">
+                          <div className="h-full bg-current progress-bar-fill" style={{ width: `${Math.min((day.uvIndex / 11) * 100, 100)}%` }} />
+                       </div>
+                       
+                       {/* Floating Tooltip Detail */}
+                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/uv:block z-20">
+                          <div className="bg-slate-800 text-white text-[10px] py-1 px-2 rounded shadow-xl whitespace-nowrap">
+                             UV Index: {day.uvIndex.toFixed(1)}
+                          </div>
+                       </div>
                      </div>
                   )}
 
-                  {/* AQI Indicator */}
+                  {/* AQI Indicator with Percentage and Enhanced Hover */}
                   {day.aqi !== undefined && (
                      <div 
-                        className={`flex items-center text-xs font-bold px-2 py-1 rounded-lg ${aqiStyle} transition-transform hover:scale-110 cursor-help`} 
-                        title={`Air Quality: ${getAQILabel(day.aqi)} (${day.aqi})`}
+                        className={`flex flex-col items-center justify-center min-w-[75px] px-2 py-1 rounded-lg ${aqiStyle} transition-all duration-300 hover:scale-105 cursor-help relative group/aqi`} 
                      >
-                       <Activity size={12} className="mr-1" />
-                       <span className="hidden xs:inline">AQI</span>
-                       <span className="ml-1">{day.aqi}</span>
+                       <div className="flex items-center text-[9px] font-black uppercase tracking-tighter">
+                         <Activity size={9} className="mr-1" />
+                         <span>AQI {aqiPercentage}%</span>
+                       </div>
+                       <div className="w-full h-1 bg-current/20 rounded-full mt-1 overflow-hidden">
+                         <div 
+                           className="h-full bg-current progress-bar-fill" 
+                           style={{ width: `${aqiPercentage}%` }}
+                         />
+                       </div>
+
+                       {/* Detailed Hover Card */}
+                       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover/aqi:block z-30 animate-fade-in pointer-events-none">
+                          <div className="bg-slate-900/95 backdrop-blur-md text-white p-3 rounded-xl shadow-2xl border border-white/10 min-w-[140px]">
+                            <div className="flex items-center justify-between mb-1">
+                               <span className="text-[10px] font-bold uppercase opacity-60">Air Quality</span>
+                               <span className="text-[10px] font-bold px-1.5 rounded bg-white/10">{aqiPercentage}%</span>
+                            </div>
+                            <div className="text-xs font-bold text-blue-300 mb-1">{getAQILabel(day.aqi)}</div>
+                            <p className="text-[10px] leading-tight opacity-80 italic">{getAQIAdvice(day.aqi)}</p>
+                            <div className="mt-2 w-full h-1 bg-white/10 rounded-full overflow-hidden">
+                               <div className="h-full bg-blue-400" style={{ width: `${aqiPercentage}%` }} />
+                            </div>
+                          </div>
+                          {/* Triangle Tip */}
+                          <div className="w-2 h-2 bg-slate-900 rotate-45 mx-auto -mt-1 border-r border-b border-white/10"></div>
+                       </div>
                      </div>
                   )}
                 </div>
                 
                 {/* Temperatures */}
-                <div className="flex items-center space-x-3 text-sm sm:text-base ml-auto sm:ml-0">
-                    <span className="font-bold text-gray-900 dark:text-white w-8 text-right">{Math.round(day.main.temp_max)}°</span>
-                    <span className="text-gray-500 dark:text-gray-400 w-8 text-right">{Math.round(day.main.temp_min)}°</span>
+                <div className="flex items-center space-x-3 text-sm sm:text-base font-medium">
+                    <span className="text-gray-900 dark:text-white font-bold w-9 text-right">{Math.round(day.main.temp_max)}°</span>
+                    <span className="text-gray-400 dark:text-gray-500 w-9 text-right">{Math.round(day.main.temp_min)}°</span>
                 </div>
               </div>
             </div>
