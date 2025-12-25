@@ -35,7 +35,7 @@ export const getAIWeatherInsight = async (weather: WeatherData): Promise<string>
       contents: prompt,
     });
 
-    return response.text.trim();
+    return response.text?.trim() || "AI insights currently unavailable. Enjoy the day!";
   } catch (error) {
     console.error("Gemini API Error:", error);
     return "AI insights currently unavailable. Enjoy the day!";

@@ -1,7 +1,7 @@
 import React from 'react';
 import { ForecastData } from '../types';
 import { WEEK_DAYS } from '../constants';
-import { Sun, Activity, Info } from 'lucide-react';
+import { Sun, Activity } from 'lucide-react';
 
 interface ForecastProps {
   forecast: ForecastData[];
