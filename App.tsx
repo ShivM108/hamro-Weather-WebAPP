@@ -6,6 +6,7 @@ import { Forecast } from './components/Forecast';
 import { AIInsight } from './components/AIInsight';
 import { SearchHistory } from './components/SearchHistory';
 import { NepalSelector } from './components/NepalSelector';
+import { WeatherAlerts } from './components/WeatherAlerts';
 import { WeatherData, ForecastData } from './types';
 import { getWeatherData, getForecastData, getCityByCoords } from './services/weatherService';
 import { getAIWeatherInsight } from './services/geminiService';
@@ -13,7 +14,6 @@ import { Loader2, AlertCircle } from 'lucide-react';
 
 const App: React.FC = () => {
   const [darkMode, setDarkMode] = useState<boolean>(() => {
-    // Check system preference or local storage
     if (typeof window !== 'undefined') {
       return localStorage.getItem('theme') === 'dark' || 
         (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -33,7 +33,6 @@ const App: React.FC = () => {
   });
   const [unit, setUnit] = useState<'metric' | 'imperial'>('metric');
 
-  // Theme effect
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
@@ -77,7 +76,6 @@ const App: React.FC = () => {
       const forecastData = await getForecastData(weatherData.coord.lat, weatherData.coord.lon, unit);
       setForecast(forecastData);
 
-      // Trigger AI Insight in background
       fetchAIInsight(weatherData);
 
     } catch (err: any) {
@@ -87,7 +85,6 @@ const App: React.FC = () => {
     }
   }, [unit]);
 
-  // Handle Geolocation
   const handleLocationClick = () => {
     if (navigator.geolocation) {
       setLoading(true);
@@ -120,7 +117,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Unit toggle re-fetch logic
   useEffect(() => {
     if (weather) {
       handleSearch(weather.name);
@@ -137,7 +133,6 @@ const App: React.FC = () => {
         <Header darkMode={darkMode} setDarkMode={setDarkMode} unit={unit} setUnit={setUnit} />
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
-          {/* Left Column: Search & History */}
           <div className="md:col-span-1 space-y-6">
             <SearchBar onSearch={handleSearch} onLocationClick={handleLocationClick} isLoading={loading} />
             
@@ -160,7 +155,6 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Column: Weather Display */}
           <div className="md:col-span-2 space-y-6">
             {loading ? (
               <div className="flex flex-col items-center justify-center h-64 text-white/80">
@@ -169,9 +163,10 @@ const App: React.FC = () => {
               </div>
             ) : weather ? (
               <div className="space-y-6 animate-slide-up">
+                {weather.alerts && <WeatherAlerts alerts={weather.alerts} />}
+                
                 <CurrentWeather data={weather} unit={unit} />
                 
-                {/* Mobile AI Insight */}
                 <div className="md:hidden">
                   <AIInsight insight={aiInsight} loading={aiLoading} />
                 </div>

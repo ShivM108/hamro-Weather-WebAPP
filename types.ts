@@ -6,6 +6,27 @@ export interface City {
   state?: string;
 }
 
+export interface Pollutants {
+  co: number;
+  no: number;
+  no2: number;
+  o3: number;
+  so2: number;
+  pm2_5: number;
+  pm10: number;
+  nh3: number;
+}
+
+export interface WeatherAlert {
+  id: string;
+  event: string;
+  sender_name: string;
+  description: string;
+  severity: 'critical' | 'warning' | 'advisory';
+  start?: number;
+  end?: number;
+}
+
 export interface WeatherData {
   name: string;
   coord: {
@@ -37,8 +58,10 @@ export interface WeatherData {
   };
   visibility: number;
   dt: number;
-  uvIndex?: number; // Optional UV Index
-  aqi?: number; // Optional Air Quality Index (1-5)
+  uvIndex?: number;
+  aqi?: number;
+  pollutants?: Pollutants;
+  alerts?: WeatherAlert[];
 }
 
 export interface ForecastData {
@@ -58,6 +81,7 @@ export interface ForecastData {
   dt_txt: string;
   uvIndex?: number;
   aqi?: number;
+  pollutants?: Pollutants;
 }
 
 export interface ForecastResponse {

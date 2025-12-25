@@ -1,11 +1,77 @@
 import { OWM_API_KEY, OWM_BASE_URL } from '../constants';
-import { WeatherData, ForecastData, ForecastResponse } from '../types';
+import { WeatherData, ForecastData, ForecastResponse, Pollutants, WeatherAlert } from '../types';
 
 const getParams = (params: Record<string, string>) => {
   return new URLSearchParams({
     appid: OWM_API_KEY,
     ...params,
   }).toString();
+};
+
+const detectAlerts = (data: WeatherData): WeatherAlert[] => {
+  const alerts: WeatherAlert[] = [];
+  const weatherId = data.weather[0].id;
+  
+  // 1. Severe Weather Codes (OWM 2xx, 5xx, 6xx, 7xx)
+  if (weatherId >= 200 && weatherId <= 232) {
+    alerts.push({
+      id: 'storm',
+      event: 'Thunderstorm Warning',
+      sender_name: 'Hamro Meteorological Center',
+      description: 'Severe thunderstorm conditions detected. Stay indoors and avoid using electrical equipment.',
+      severity: 'warning'
+    });
+  } else if (weatherId === 781) {
+    alerts.push({
+      id: 'tornado',
+      event: 'Tornado Warning',
+      sender_name: 'Emergency Alert System',
+      description: 'Extremely dangerous tornado conditions detected in this area. Seek shelter immediately in a basement or interior room.',
+      severity: 'critical'
+    });
+  } else if (weatherId === 771) {
+    alerts.push({
+      id: 'squall',
+      event: 'Wind Squall Advisory',
+      sender_name: 'Local Weather Station',
+      description: 'Sudden high-velocity winds expected. Secure loose outdoor items.',
+      severity: 'advisory'
+    });
+  }
+
+  // 2. Heavy Precipitation
+  if (weatherId === 502 || weatherId === 503 || weatherId === 504) {
+    alerts.push({
+      id: 'heavy-rain',
+      event: 'Heavy Rain Warning',
+      sender_name: 'Hydrological Services',
+      description: 'Intense rainfall may lead to localized flooding and reduced visibility.',
+      severity: 'warning'
+    });
+  }
+
+  // 3. Environmental Hazards (UV/AQI)
+  if (data.uvIndex && data.uvIndex >= 11) {
+    alerts.push({
+      id: 'extreme-uv',
+      event: 'Extreme UV Alert',
+      sender_name: 'Health Advisory',
+      description: 'UV index is at extreme levels. Unprotected skin can burn in minutes. Stay in shade or indoors between 10 AM and 4 PM.',
+      severity: 'warning'
+    });
+  }
+
+  if (data.aqi && data.aqi >= 5) {
+    alerts.push({
+      id: 'hazardous-aqi',
+      event: 'Hazardous Air Quality',
+      sender_name: 'Environment Protection Agency',
+      description: 'Air pollution is at dangerous levels. Everyone should avoid all outdoor physical activities.',
+      severity: 'critical'
+    });
+  }
+
+  return alerts;
 };
 
 export const getWeatherData = async (city: string, unit: 'metric' | 'imperial'): Promise<WeatherData> => {
@@ -15,15 +81,20 @@ export const getWeatherData = async (city: string, unit: 'metric' | 'imperial'):
   }
   const data = await response.json();
   
-  // Try to fetch UV Index and AQI
   try {
-    const [uv, aqi] = await Promise.all([
+    const [uv, pollution] = await Promise.all([
       getUVIndex(data.coord.lat, data.coord.lon),
       getAirQuality(data.coord.lat, data.coord.lon)
     ]);
 
     if (uv !== null) data.uvIndex = uv;
-    if (aqi !== null) data.aqi = aqi;
+    if (pollution !== null) {
+      data.aqi = pollution.aqi;
+      data.pollutants = pollution.components;
+    }
+    
+    // Attach detected alerts
+    data.alerts = detectAlerts(data);
   } catch (e) {
     console.warn("Could not fetch additional weather metrics", e);
   }
@@ -38,15 +109,20 @@ export const getCityByCoords = async (lat: number, lon: number, unit: 'metric' |
   }
   const data = await response.json();
 
-  // Try to fetch UV Index and AQI
   try {
-    const [uv, aqi] = await Promise.all([
+    const [uv, pollution] = await Promise.all([
       getUVIndex(data.coord.lat, data.coord.lon),
       getAirQuality(data.coord.lat, data.coord.lon)
     ]);
 
     if (uv !== null) data.uvIndex = uv;
-    if (aqi !== null) data.aqi = aqi;
+    if (pollution !== null) {
+      data.aqi = pollution.aqi;
+      data.pollutants = pollution.components;
+    }
+
+    // Attach detected alerts
+    data.alerts = detectAlerts(data);
   } catch (e) {
     console.warn("Could not fetch additional weather metrics", e);
   }
@@ -54,31 +130,25 @@ export const getCityByCoords = async (lat: number, lon: number, unit: 'metric' |
   return data;
 };
 
-// Fetch UV Index using OWM APIs
 export const getUVIndex = async (lat: number, lon: number): Promise<number | null> => {
   try {
-    // Attempt to use the separate UV endpoint (legacy but often works with standard keys)
     const response = await fetch(`${OWM_BASE_URL}/uvi?${getParams({ lat: lat.toString(), lon: lon.toString() })}`);
-    
     if (response.ok) {
       const data = await response.json();
       return data.value;
     }
     return null;
   } catch (error) {
-    console.warn("Error fetching UV index:", error);
     return null;
   }
 };
 
-// Fetch Air Quality Index
-export const getAirQuality = async (lat: number, lon: number): Promise<number | null> => {
+export const getAirQuality = async (lat: number, lon: number): Promise<{ aqi: number, components: Pollutants } | null> => {
   try {
     const response = await fetch(`${OWM_BASE_URL}/air_pollution?${getParams({ lat: lat.toString(), lon: lon.toString() })}`);
     if (response.ok) {
       const data = await response.json();
-      // AQI is inside list[0].main.aqi
-      return data.list?.[0]?.main?.aqi || null;
+      return data.list?.[0] ? { aqi: data.list[0].main.aqi, components: data.list[0].components } : null;
     }
     return null;
   } catch (error) {
@@ -94,7 +164,6 @@ const getUVForecast = async (lat: number, lon: number): Promise<any[]> => {
     }
     return [];
   } catch (error) {
-    console.warn("Failed to fetch UV forecast", error);
     return [];
   }
 };
@@ -108,7 +177,6 @@ const getAQIForecast = async (lat: number, lon: number): Promise<any[]> => {
     }
     return [];
   } catch (error) {
-    console.warn("Failed to fetch AQI forecast", error);
     return [];
   }
 };
@@ -120,14 +188,11 @@ export const getForecastData = async (lat: number, lon: number, unit: 'metric' |
   }
   const data: ForecastResponse = await response.json();
   
-  // OWM 5-day forecast returns data every 3 hours (40 items).
-  // We need to filter this to get one reading per day (e.g., closest to noon).
   const dailyForecast: ForecastData[] = [];
   const addedDates = new Set();
 
   data.list.forEach((item) => {
     const date = new Date(item.dt * 1000).toDateString();
-    // Try to pick the reading closer to noon (12:00:00)
     const hours = new Date(item.dt * 1000).getHours();
     
     if (!addedDates.has(date)) {
@@ -139,11 +204,9 @@ export const getForecastData = async (lat: number, lon: number, unit: 'metric' |
            addedDates.add(date);
       }
     } else {
-        // If we already added this day, check if the current item is closer to noon than the stored one
         const existingIndex = dailyForecast.findIndex(f => new Date(f.dt * 1000).toDateString() === date);
         if (existingIndex !== -1) {
             const existingHours = new Date(dailyForecast[existingIndex].dt * 1000).getHours();
-            // If current is closer to 12 than existing
             if (Math.abs(hours - 12) < Math.abs(existingHours - 12)) {
                 dailyForecast[existingIndex] = item;
             }
@@ -151,7 +214,6 @@ export const getForecastData = async (lat: number, lon: number, unit: 'metric' |
     }
   });
   
-  // Fetch UV and AQI Forecasts and merge
   try {
     const [uvData, aqiData] = await Promise.all([
       getUVForecast(lat, lon),
@@ -161,22 +223,18 @@ export const getForecastData = async (lat: number, lon: number, unit: 'metric' |
     dailyForecast.forEach(day => {
       const dayDate = new Date(day.dt * 1000).toDateString();
       
-      // Match UV data
       if (Array.isArray(uvData) && uvData.length > 0) {
         const uvItem = uvData.find(u => new Date(u.date * 1000).toDateString() === dayDate);
-        if (uvItem) {
-          day.uvIndex = uvItem.value;
-        }
+        if (uvItem) day.uvIndex = uvItem.value;
       }
 
-      // Match AQI data (AQI forecast is hourly, we pick one for the day)
       if (Array.isArray(aqiData) && aqiData.length > 0) {
-        // Find closest to noon, or just the first match for the day
         const aqiItem = aqiData.find(a => new Date(a.dt * 1000).toDateString() === dayDate && new Date(a.dt * 1000).getHours() >= 12) 
                      || aqiData.find(a => new Date(a.dt * 1000).toDateString() === dayDate);
         
         if (aqiItem) {
           day.aqi = aqiItem.main.aqi;
+          day.pollutants = aqiItem.components;
         }
       }
     });
@@ -184,5 +242,5 @@ export const getForecastData = async (lat: number, lon: number, unit: 'metric' |
     console.warn("Could not merge additional forecast metrics", e);
   }
 
-  return dailyForecast.slice(0, 5); // Ensure max 5 days
+  return dailyForecast.slice(0, 5);
 };
