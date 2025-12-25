@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { nepalLocations } from '../data/nepalLocations';
-import { Map, ChevronRight, Search } from 'lucide-react';
+import { Map, ChevronRight, Search, X } from 'lucide-react';
 
 interface NepalSelectorProps {
   onSelectCity: (city: string) => void;
@@ -26,11 +26,21 @@ export const NepalSelector: React.FC<NepalSelectorProps> = ({ onSelectCity }) =>
     onSelectCity(`${city}, Nepal`);
   };
 
-  const selectedProvinceData = nepalLocations.find(p => p.province === province);
-  const selectedDistrictData = selectedProvinceData?.districts.find(d => d.name === district);
+  const selectedProvinceData = useMemo(() => 
+    nepalLocations.find(p => p.province === province),
+    [province]
+  );
+  
+  const selectedDistrictData = useMemo(() => 
+    selectedProvinceData?.districts.find(d => d.name === district),
+    [selectedProvinceData, district]
+  );
 
-  const filteredCities = selectedDistrictData?.cities.filter(city => 
-    city.toLowerCase().includes(cityFilter.toLowerCase())
+  const filteredCities = useMemo(() => 
+    selectedDistrictData?.cities.filter(city => 
+      city.toLowerCase().includes(cityFilter.toLowerCase())
+    ) || [],
+    [selectedDistrictData, cityFilter]
   );
 
   return (
@@ -40,14 +50,14 @@ export const NepalSelector: React.FC<NepalSelectorProps> = ({ onSelectCity }) =>
         <h3 className="font-bold text-gray-800 dark:text-gray-100">Browse Nepal</h3>
       </div>
 
-      <div className="space-y-3">
+      <div className="space-y-4">
         {/* Province Selector */}
         <div>
-          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase">Province</label>
+          <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider">Province</label>
           <select 
             value={province} 
             onChange={handleProvinceChange}
-            className="w-full bg-white/50 dark:bg-black/30 border border-white/30 dark:border-slate-600 rounded-lg p-2 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full bg-white/50 dark:bg-black/30 border border-white/30 dark:border-slate-600 rounded-lg p-2.5 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all appearance-none cursor-pointer"
           >
             <option value="">Select Province</option>
             {nepalLocations.map(p => (
@@ -58,12 +68,12 @@ export const NepalSelector: React.FC<NepalSelectorProps> = ({ onSelectCity }) =>
 
         {/* District Selector */}
         <div>
-           <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1 uppercase">District</label>
+           <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 mb-1 uppercase tracking-wider">District</label>
            <select 
             value={district} 
             onChange={handleDistrictChange}
             disabled={!province}
-            className="w-full bg-white/50 dark:bg-black/30 border border-white/30 dark:border-slate-600 rounded-lg p-2 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="w-full bg-white/50 dark:bg-black/30 border border-white/30 dark:border-slate-600 rounded-lg p-2.5 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 disabled:opacity-50 transition-all appearance-none cursor-pointer"
           >
             <option value="">Select District</option>
             {selectedProvinceData?.districts.map(d => (
@@ -72,38 +82,59 @@ export const NepalSelector: React.FC<NepalSelectorProps> = ({ onSelectCity }) =>
           </select>
         </div>
 
-        {/* Cities List */}
+        {/* Cities Section */}
         {selectedDistrictData && (
-          <div className="mt-4">
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2 uppercase">Select Municipality</label>
+          <div className="mt-4 pt-4 border-t border-white/10 animate-slide-up">
+            <div className="flex justify-between items-end mb-2">
+              <label className="block text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                Municipalities
+              </label>
+              {selectedDistrictData.cities.length > 0 && (
+                <span className="text-[10px] text-blue-600 dark:text-blue-400 font-medium">
+                  {filteredCities.length} of {selectedDistrictData.cities.length}
+                </span>
+              )}
+            </div>
             
-            {/* City Filter Input */}
-            <div className="relative mb-3">
+            {/* Enhanced City Filter Input */}
+            <div className="relative mb-3 group">
               <input 
                 type="text"
-                placeholder="Filter cities..."
+                placeholder={`Search in ${district}...`}
                 value={cityFilter}
                 onChange={(e) => setCityFilter(e.target.value)}
-                className="w-full bg-white/50 dark:bg-black/30 border border-white/30 dark:border-slate-600 rounded-lg py-2 pl-9 pr-3 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 placeholder-gray-500"
+                className="w-full bg-white/60 dark:bg-black/40 border border-white/40 dark:border-slate-600 rounded-lg py-2.5 pl-10 pr-10 text-sm text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500/50 placeholder-gray-500 transition-all"
               />
-              <Search className="w-4 h-4 text-gray-500 absolute left-3 top-2.5" />
+              <Search className="w-4 h-4 text-gray-400 absolute left-3.5 top-3 group-focus-within:text-blue-500 transition-colors" />
+              
+              {cityFilter && (
+                <button 
+                  onClick={() => setCityFilter('')}
+                  className="absolute right-3 top-2.5 p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-full hover:bg-white/20 transition-all"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
 
-            <div className="grid grid-cols-2 gap-2 max-h-60 overflow-y-auto pr-1 custom-scrollbar">
-              {filteredCities && filteredCities.length > 0 ? (
+            <div className="grid grid-cols-1 gap-2 max-h-56 overflow-y-auto pr-1 custom-scrollbar">
+              {filteredCities.length > 0 ? (
                 filteredCities.map(city => (
                   <button
                     key={city}
                     onClick={() => handleCityClick(city)}
-                    className="text-left text-sm px-3 py-2 bg-blue-50/50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-800/40 text-blue-700 dark:text-blue-300 rounded-md transition-colors flex items-center justify-between group"
+                    className="text-left text-sm px-4 py-3 bg-white/40 dark:bg-white/5 hover:bg-blue-500 dark:hover:bg-blue-600 text-gray-700 dark:text-gray-200 hover:text-white rounded-xl transition-all flex items-center justify-between group/item border border-white/20"
                   >
-                    <span>{city}</span>
-                    <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                    <span className="font-medium">{city}</span>
+                    <ChevronRight size={14} className="opacity-0 -translate-x-2 group-hover/item:opacity-100 group-hover/item:translate-x-0 transition-all" />
                   </button>
                 ))
               ) : (
-                <div className="col-span-2 text-center py-4 text-sm text-gray-500 dark:text-gray-400 italic">
-                  No cities found
+                <div className="flex flex-col items-center justify-center py-8 text-center bg-black/5 dark:bg-black/20 rounded-xl">
+                  <Search size={24} className="text-gray-400 mb-2 opacity-30" />
+                  <p className="text-sm text-gray-500 dark:text-gray-400 italic px-4">
+                    No municipality matches "{cityFilter}"
+                  </p>
                 </div>
               )}
             </div>
